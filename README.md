@@ -11,6 +11,11 @@
     - [Understanding Special Variable Cases](#understanding-special-variable-cases)
   - [Creating Conditional Statements](#creating-conditional-statements)
     - [Understanding Simple Tests](#understanding-simple-tests)
+    - [Working with Simple Tests and Arithmetic Expressions](#working-with-simple-tests-and-arithmetic-expressions)
+    - [Testing Strings and Regular Expressions](#testing-strings-and-regular-expressions)
+    - [Understanding File Attributes](#understanding-file-attributes)
+      - [Demo](#demo)
+    - [Creating Scripts with Test Conditions](#creating-scripts-with-test-conditions)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
@@ -379,3 +384,294 @@ else
   echo "The value is $days";
 fi
 ```
+
+### Working with Simple Tests and Arithmetic Expressions
+
+Need to understand what's returned from commands, eg:
+
+```shell
+cat /etc/hosts
+echo $?
+# 0
+cat /etc/hostss
+echo $?
+# 1
+```
+
+`0` means the last command executed has succeeded, non-zero means command has failed, eg: trying to list contents of a non-existent file.
+
+Create a new user only if user doesn't already exist in the password file:
+
+```shell
+getent passwod tux1 || sudo useradd tux1
+```
+
+Only set password for user `tux1` if can successfully retrieve user from password file:
+
+```shell
+getent passwod tux1 && sudo passwod tux1
+# prompts for password
+```
+
+**Simple IF Statements**
+
+
+```shell
+# Declare an integer variable but do not assign it a value
+declare -i days
+# Prompt user to enter a value
+read days
+# enter 30
+if [ $days -lt 1 ] ; then echo "Enter a correct value" ; fi
+```
+
+**Arithmetic Evaluation**
+
+Using square brackets for conditionals is old POSIX syntax. There's a better way for more modern shells using double parens. Can remove `$` from variable, and use `<` instead of `-lt`. Can also combine multiple conditions:
+
+```shell
+if (( days <  1 || days > 30 )) ; then echo "Enter a correct value" ; fi
+```
+
+**NOTE: History Expansion**
+
+Can re-run the `read` command with `!r`. Explanation from ChatGPT:
+
+In a Unix shell, the "!" character followed by a command or string is used to invoke history expansion, which allows you to refer to previous commands in your command history.
+
+Specifically, the "!" character followed by a command or string is used as a history substitution event designator. When entered at the beginning of a command line, it tells the shell to perform history expansion and replace the "!" character followed by a command or string with the corresponding command from the command history.
+
+For example, you can use "!ls" to repeat the last executed command that started with "ls". If you have executed multiple "ls" commands in the past, the most recent one will be repeated. Similarly, you can use "!42" to repeat the 42nd command in your command history.
+
+You can also use various modifiers with "!" to modify the behavior of history expansion, such as "!:n" to refer to the nth argument of the previous command, "!$ " to refer to the last argument of the previous command, and so on.
+
+It's important to note that history expansion using "!" is a powerful feature, but it can also be potentially risky, as it can execute commands from your command history without explicit confirmation. Therefore, it's important to be cautious when using "!" and double-check the command that will be executed before proceeding.
+
+**Elif and Else**
+
+Update to display different messages
+
+```shell
+if (( days <  1 )) ; then echo "Enter a numeric value" ; elif (( days > 30 )) ; then echo "Enter a value less than 31" ; else echo "The days are $days" ; fi
+```
+
+### Testing Strings and Regular Expressions
+
+Prefer `==` over `=` for testing string equality to differentiate from assignment operator.
+
+`!=` for not equals.
+
+`=~` for regex matching.
+
+```shell
+# declare a lower cased variable
+declare -l user_name
+read user_name
+# populate with mixed case: Bob
+[ $user_name == 'bob' ] && echo "user is bob"
+# user is bob
+[ $user_name == 'Bob' ] && echo "user is bob"
+# no output
+echo $?
+# 1 (because previous test of string equality failed)
+
+read user_name
+# populate with: alice
+
+# test for inequality
+[ $user_name != 'alice' ]
+echo $?
+# 1
+```
+
+**Testing Partial String Values**
+
+Use double square bracket syntax `[[...]]` in advanced shells to test for partial values. `$` is required for variable.
+
+```shell
+declare -l browser
+read browser
+# enter at the prompt: Firefox
+
+# Test if `browser` variable ends in `fox`
+[[ $browser == *fox ]] && echo "The browser is Firefox"
+# Outputs: The browser is Firefox
+
+# Test if it starts with `fire` - answer is no because its case sensitive
+[[ $browser == fire* ]] && echo "The browser is Firefox"
+# No output (return code 1)
+
+# Test if it starts with `Fire` - yes!
+[[ $browser == Fire* ]] && echo "The browser is Firefox"
+# Outputs: The browser is Firefox
+```
+
+Another example: Suppose have usernames like `bob_user` for regular user and `bob_admin` for admins. Want to test if a given username is an admin:
+
+```shell
+declare -l user_name
+read user_name
+# Enter: bob_admin
+
+# Is it an admin?
+[[ $user_name == *_admin ]]
+echo $?
+# 0
+
+# Is it a regular user?
+[[ $user_name == *_admin ]]
+echo $?
+# 1
+```
+
+**Testing Regular Expressions**
+
+Regex testing is a more expressive way of searching for strings.
+
+Use double square bracket syntax and match operator `=~`. Result is stored in array `BASH_REMATCH`.
+
+NOTE:  To use `BASH_REMATCH` on Mac, first need to run `setopt BASH_REMATCH`
+
+```shell
+declare -l test_var
+read test_var
+# Enter at prompt: color
+
+[[ $test_var =~ colou?r ]] && echo "${BASH_REMATCH[0]}"
+```
+
+But this does work:
+
+```shell
+#!/bin/zsh
+
+# Declare variable in lowercase
+typeset -l test_var
+
+# Set a value for test_var
+test_var="color"
+
+# Perform regular expression matching: Look for American or Canadian/UK spelling
+# `?` following the letter `u` makes it optional
+if [[ $test_var =~ 'colou?r' ]]; then
+  # Extract captured substring
+  match=$MATCH
+  echo "Match: $match"
+else
+  echo "No match found."
+fi
+```
+
+Admin vs regular user example:
+
+```shell
+declare -l user_name
+read user_name
+# Enter: bob_admin
+
+# Use regex to test if username ends in `_admin`, use `$` as anchor for end of string
+[[ $user_name =~ _admin$ ]]
+echo $?
+# 0
+
+# Is it regular user?
+[[ $user_name =~ _user$ ]]
+echo $?
+# 1
+
+# Inspect the match
+echo $BASH_REMATCH[1]
+```
+
+### Understanding File Attributes
+
+**The Test Command**
+
+`[` is a synonym for test.
+
+`[[` is for advanced test that should be used in precedence to `[`, and is a shell keyword.
+
+There is also a `test` command that is a shell builtin.
+
+**Builtin vs Keyword:**
+
+From ChatGPT:
+
+Shell Builtin:
+A shell builtin is a command or function that is built into the shell itself. It is implemented as part of the shell's executable code and is directly executed by the shell without invoking an external program. This means that the builtin commands are executed within the same process as the shell itself, without creating a separate process. Examples of shell builtins include commands like cd for changing directories, echo for displaying messages, and export for setting environment variables. Because they are part of the shell, builtins can directly manipulate the shell's internal state, such as modifying shell variables, and can have a more direct impact on the shell's behavior.
+
+Shell Keyword:
+A shell keyword, on the other hand, is a reserved word recognized by the shell as a special instruction, but it is not part of the shell's built-in commands. Keywords are interpreted by the shell itself and are not executed as separate processes. Keywords are typically used to define control structures like loops and conditionals, and they are used in shell scripts to implement complex logic. Examples of shell keywords include if, else, while, and for.
+
+The main difference between a shell builtin and a shell keyword is that builtins are commands that are part of the shell's internal code and are executed directly by the shell, while keywords are reserved words recognized by the shell for implementing control structures in shell scripts. Builtins are typically used for performing operations that require direct manipulation of the shell's state, while keywords are used for controlling the flow of execution in shell scripts.
+
+**Testing file Attributes**
+
+Example: Check if a file is a regular file with `-f`
+
+```shell
+# Using test command
+test -f /etc/hosts && echo YES
+# YES
+
+# Using advanced test
+[[ -f /etc/hosts ]] && echo YES
+# YES
+
+# test for directory
+[[ -d /etc ]] && echo IS_DIR
+# IS_DIR
+
+# test for symbolic link
+[[ -L /etc/localtime ]]
+# IS_LINK
+
+# test for existence of a file, no matter the type
+[[ -e /etc/nolgin ]]
+
+# test for read permission (r), write (w), execute (x)
+[[ -r /etc/hosts ]]
+
+# test for sticky bit
+[[ -k /tmp ]]
+
+# tests for the SUID bit (use g for the GUID bit)
+[[ -s /bin/passwd ]]
+```
+
+**NOTE: Sticky bit explanation from ChatGPT:**
+
+The sticky bit is a special permission bit that can be set on directories to modify their behavior.
+When the sticky bit is set on a directory, it restricts the deletion or renaming of files within that directory to only the owner of the file, the owner of the directory, or the superuser (root). This means that even if other users have write permissions on the directory, they cannot delete or rename files owned by other users within that directory.
+
+The sticky bit is represented by the letter "t" in the permissions field of a directory when viewed with the "ls" command. To set the sticky bit on a directory, you can use the "chmod" command with the "+t" option, followed by the name of the directory
+
+**NOTE: SUID bit explanation from ChatGPT:**
+
+The SUID (Set User ID) bit is a special permission bit in Linux and Unix-like operating systems that can be set on executable files. When the SUID bit is set on an executable file, it changes the way the file is executed and determines the user's privileges while running the file.
+
+Specifically, when an executable file has the SUID bit set, it is executed with the permissions of the file's owner instead of the permissions of the user who is executing the file. This means that if a user executes an executable file with the SUID bit set, the file runs with the permissions of the owner of the file, allowing the user to perform actions that would normally require higher privileges.
+
+The SUID bit is represented by the letter "s" in the permissions field of a file when viewed with the "ls" command.
+
+**type command**
+
+Shows whether the given command is a built-in, alias, function, or external binary.
+
+```bash
+type test [
+# test is a shell builtin
+# [ is a shell builtin
+```
+
+#### Demo
+
+```shell
+# if `dir1` does not exist, go ahead and create it
+test -e dir1 || mkdir dir1
+
+# make sure user has write permission to dir1 and if yes, make a file in that directory
+test -w dir1 && touch dir1/file1
+```
+
+### Creating Scripts with Test Conditions
