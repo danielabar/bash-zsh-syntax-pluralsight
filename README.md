@@ -16,6 +16,9 @@
     - [Understanding File Attributes](#understanding-file-attributes)
       - [Demo](#demo)
     - [Creating Scripts with Test Conditions](#creating-scripts-with-test-conditions)
+    - [Working with the Case Statement](#working-with-the-case-statement)
+    - [Summary](#summary)
+  - [Building Effective Functions](#building-effective-functions)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
@@ -675,3 +678,127 @@ test -w dir1 && touch dir1/file1
 ```
 
 ### Creating Scripts with Test Conditions
+
+Example:
+
+```bash
+#!/bin/zsh
+
+declare -l DIR
+# Use -n with echo so it will not generate new line char,
+# This way when user enters their value, its on the same line as the prompt
+echo -n "Enter the name of the directory to create: "
+read DIR
+
+# check if a file or dir named $DIR already exists
+if [[ -e $DIR ]]; then
+  echo "A file or directory already exists with the name $DIR"
+  exit 1
+else
+  # check that the user has permission to write to the current working directory
+  if [[ -w $PWD ]]; then
+    # if entered `FOO` at prompt, this will create a dir named `foo`
+    echo "Creating directory $DIR"
+    mkdir $DIR
+  else
+    echo "You don't have write permission to create $DIR within $PWD"
+    exit 2
+  fi
+fi
+```
+
+Note using two different exit codes to distinguish the two different error conditions.
+
+
+```bash
+# Make the script executable:
+chmod +x scripts/test-conditions.sh
+
+# Run it in the current project dir:
+./scripts/test-conditions.sh
+
+# Run it somewhere you don't have write permissions
+cd /etc
+/path/to/scripts/test-conditions.sh
+```
+
+### Working with the Case Statement
+
+More efficient than having many `elif` statements. The script parser can read the test condition just once. Starts with `case` and ends with `esac`. Each block ends with `;;`.
+
+```bash
+case $USER in
+  tux )
+    echo "You are the course instructor"
+    ;;
+  dbaron )
+    echo "You are a course participant"
+    ;;
+  root )
+    echo "You are the boss"
+    ;;
+esac
+```
+
+Another example - note that the double semi-colon `;;` can also be on the same line as the command that gets executed when the specific case matches:
+
+```bash
+#!/bin/zsh
+
+# short form of current month, eg: `Apr`, then lower case it, eg: `apr`
+# declare and populate in the same line
+# note that $(...) executes a subshell and returns output of the command inside it, aka command substitution
+declare -l month=$(date +%b)
+
+# output what season it is based on the current month
+case $month in
+  dec | jan | feb )
+    echo "Winter";;
+  mar | apr | may )
+    echo "Spring";;
+  jun | jul | aug )
+    echo "Summer";;
+  sep | oct | nov )
+    echo "Winter";;
+esac
+```
+
+**Common Date Format Codes**
+
+* `%Y` 4-digit year
+* `%m` 2-digit month (with leading zeros)
+* `%d` 2-digit day of the month (with leading zeros)
+* `%H` 2-digit hour in 24-hour format (with leading zeros)
+* `%M` 2-digit minute (with leading zeros)
+* `%S` 2-digit second (with leading zeros)
+* `%A` Full weekday name (e.g. Sunday)
+* `%a` Abbreviated weekday name (e.g. Sun)
+* `%B` Full month name (e.g. January)
+* `%b` Abbreviated month name (e.g. Jan)
+* `%j` Day of the year (e.g. 001 for January 1st)
+* `%U` Week number of the year, with Sunday as the first day of the week
+* `%u` Week number of the year, with Monday as the first day of the week
+
+You can combine these format codes to create custom date and time formats, such as `date +%Y-%m-%d` to get the current date in YYYY-MM-DD format.
+
+### Summary
+
+AND condition represented with `&&`, OR condition represented with `||`
+
+To build more complex flows, use: `if condition ; then action ; fi`
+
+In advanced shells (bash, zsh), use double parens for arithmetic calculations: `(( days < 1 ))`
+
+Combine AND/OR into conditional tests: `(( days < 1 || days > 30 ))`
+
+In advanced shell, can also use double square brackets to test for strings: `[[ $month == jan ]]`
+
+Can also test for partial strings: `[[ $month == j* ]]`
+
+Not equals: `[[ $month != jan ]]`
+
+Use match operator for regex, eg: does the given month end in `y`: `[[ $month =~ y$ ]]`
+
+General form of case statement: `case $VAR in; some_val ); some_action;; esac`
+
+## Building Effective Functions
