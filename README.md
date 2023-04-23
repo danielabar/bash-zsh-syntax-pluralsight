@@ -19,6 +19,8 @@
     - [Working with the Case Statement](#working-with-the-case-statement)
     - [Summary](#summary)
   - [Building Effective Functions](#building-effective-functions)
+    - [Exporting Functions](#exporting-functions)
+    - [Working with Arguments and Returns](#working-with-arguments-and-returns)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
@@ -802,3 +804,141 @@ Use match operator for regex, eg: does the given month end in `y`: `[[ $month =~
 General form of case statement: `case $VAR in; some_val ); some_action;; esac`
 
 ## Building Effective Functions
+
+Functions are local to the shell they're defined in. If want it available to sub-shells, need to `export`.
+
+Functions exist in memory, they execute from the memory of the shell.
+
+Shell functions encapsulate blocks of code in named elements that can be executed or called from scripts or directly via CLI.
+
+Round parents `()` indicate the function can accept arguments, but for this simple example, we're not using any args:
+
+**Simple Example**
+
+```bash
+# declare a function named say_hello
+function say_hello () {
+  echo hello
+}
+
+# execute the function at CLI
+say_hello
+# outputs: hello
+```
+
+**List Functions**
+
+Lowercase `-f` prints details of functions, uppercase `-F` prints the function names (upper case doesn't work on Mac).
+
+```bash
+# list all functions and their details
+declare -f
+
+# list just a single funciton
+declare -f say_hello
+# say_hello () {
+#   echo hello
+# }
+```
+
+Can name a function whatever you want as long as its not already in use. Can define a function at prompt:
+
+```bash
+$ function say_hello() {
+function> echo hello
+function> }
+$
+$ say_hello
+$ # outputs: hello
+```
+
+You can pass args but are silently ignored:
+
+```bash
+$ say_hello foo
+$ # outputs: hello
+```
+
+### Exporting Functions
+
+To make a function available to a subshell, needs to be exported, similar to variables.
+
+Carrying on with `say_hello` example function declared previously, if launch a subshell, the function is not available, but if export it, it is available to subshell. NOTE: This didn't work on Mac.
+
+```bash
+# open a subshell
+bash
+
+# try to run say_hello
+say_hello
+# command not found: say_hello
+
+# exit the subshell
+exit
+
+# export the say_hello function, indicate that it is a function
+declare -xf say_hello
+
+# run a subshell
+bash
+
+# should be able to run the function now
+say_hello
+# hello
+```
+
+### Working with Arguments and Returns
+
+Functions can accept arguments similar to scripts.
+
+Example, could invoke a function like:
+
+```bash
+$ create_user tux foo
+# inside the function:
+#   tux would be $1
+#   foo would be $2
+#   all args would be $*
+```
+
+**Return Values**
+
+Use the `return` command similar to `exit`. Value acts as an exit code to the function and the return command will quite the function without further code execution. Similar to how `exit` is used in a script.
+
+Any non-zero return is considered an error:
+
+```bash
+# anywhere in function - error
+return 1
+
+# anywhere in function - success
+return 0
+```
+
+**Example: Create User**
+
+```bash
+function create_user () {
+  if ( getent passwod $1 > /dev/null ); then
+    echo "$1 already exists";
+    return 1;
+  else
+    echo "Creating user $1";
+    sudo useradd $1;
+    return 0;
+  fi
+}
+```
+
+**NOTE about getent**
+
+The getent command is used to retrieve information from system databases such as the user database (`/etc/passwd`), group database (`/etc/group`), and service database (`/etc/services`), etc. It is a command-line utility that allows you to query the Name Service Switch (NSS) libraries to retrieve information from a variety of sources, including local files, NIS, LDAP, and DNS.
+
+The syntax of the getent command is as follows:
+
+```bash
+getent database [key...]
+getent passwd username
+```
+
+Left at 3:03
