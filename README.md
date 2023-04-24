@@ -21,6 +21,11 @@
   - [Building Effective Functions](#building-effective-functions)
     - [Exporting Functions](#exporting-functions)
     - [Working with Arguments and Returns](#working-with-arguments-and-returns)
+    - [Best Practices](#best-practices)
+    - [Summary](#summary-1)
+  - [Understanding Shell Iteration Using Loops](#understanding-shell-iteration-using-loops)
+    - [Introducing While and Until Loops](#introducing-while-and-until-loops)
+    - [Understanding For Loops](#understanding-for-loops)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
@@ -919,6 +924,7 @@ return 0
 
 ```bash
 function create_user () {
+  # redirect to dev/null so the caller of this function won't see the output
   if ( getent passwod $1 > /dev/null ); then
     echo "$1 already exists";
     return 1;
@@ -941,4 +947,187 @@ getent database [key...]
 getent passwd username
 ```
 
-Left at 3:03
+### Best Practices
+
+Functions should be standalone and not dependent on other elements such as variables from the master script. Otherwise it limits how much the function can be used in other scripts.
+
+**Bad**
+
+This function relies on `$age` variable being set in the shell:
+
+```bash
+function print_age () {
+  echo $age
+}
+```
+
+Also bad - if the shell happened to have an `$age` variable, calling this function would overwrite it which is unexpected:
+
+```bash
+function print_age () {
+  age=$1
+  echo $age
+}
+
+echo $age
+# empty
+print_age 5
+# 5
+echo $age
+# 5 <- side effect, function leaked `age` var into shell
+```
+
+**Good**
+
+This function takes the value as an argument, setting the variable in the function still allows the variable to be named, but doesn't rely on calling shell. Local var prevents `$age` leaking to the shell:
+
+```bash
+function print_age () {
+  # local keyword ensures age var is only available in this function
+  # and does not leak out to the shell
+  # also good practice to name the variable `age` rather than just referencing $1, $2, etc.
+  local age=$1
+  echo $age
+}
+```
+
+### Summary
+
+**List functions**
+* detailed: `declare -f`
+* summary: `declare -F`
+
+**Export function**
+* `declare -fx function_name`
+
+**Unset function**
+* `unset -f function_name`
+
+Exit function using `return`
+
+Keyword `local` to keep variable declarations local to function.
+
+Design functions to be standalone.
+
+## Understanding Shell Iteration Using Loops
+
+### Introducing While and Until Loops
+
+**Loops**
+
+Looping structures are for iteration through a list of group of items. Eg: create 12 users that need similar properties.
+
+While/Until: Loop while a `condition` is true or `until` the condition becomes true.
+
+**While Example**
+
+```bash
+# declare an integer variable `x` with an initial value of 10
+declare -i x=10
+
+# Loop structure starts with keyword `do` and ends with keyword `done`
+# print out the value of x to the console as long as x is greater than 0
+# Note use of advanced arithmetic ops using double round parens, spacing is important!
+while (( x > 0 )) ; do
+  echo $x
+  # decrement x
+  x=x-1
+done
+```
+
+Output:
+```
+10
+9
+8
+7
+6
+5
+4
+3
+2
+1
+```
+
+**Until Example**
+
+```bash
+#!/bin/zsh
+
+declare -i x=10
+
+until (( x == 0 )) ; do
+  echo $x
+  x=x-1
+done
+```
+
+Output:
+```
+10
+9
+8
+7
+6
+5
+4
+3
+2
+1
+```
+
+### Understanding For Loops
+
+Iterate over a list, list may be manually created or generated from a command. There are multiple "style" of the for loop.
+
+**C-style Loop**
+
+Takes 3 expressions, separated by semi-colon:
+1. Initialize the variable
+2. Test the variable
+3. Increment (`++`) or decrement (`--`) the variable
+
+Example of increment on multiple lines:
+
+```bash
+for ((i=0 ; i<5 ; i++)); do
+  echo $i
+done
+```
+
+Can also write on single line, this example decrements:
+
+```bash
+for ((i=5 ; i>0 ; i--)); do echo $i; done
+```
+
+**Iterating an Array**
+
+Use C-style for loop to iterate over each item in an array. Can test elements of array for a condition.
+
+Note that on Mac, arrays are 1-based so have to start for loop index at 1 rather than 0, and test for less than or equal to rather than strictly less than.
+
+```bash
+#!/bin/zsh
+
+# declare an indexed array
+declare -a users=("bob" "joe" "sue")
+
+# count elements in array
+echo ${#users[*]}
+
+for ((i=1; i<=${#users[*]}; i++)); do
+  echo ${users[$i]}
+  # sudo useradd ${users[$i]}
+done
+```
+
+**Classic FOR Loop**
+
+List referred to with the `in` keyword can be static or dynamic:
+
+```bash
+for f in $(ls); do stat -f "%z %N" $f ; done
+```
+
+Left at 3:40
